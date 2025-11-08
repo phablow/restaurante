@@ -1,4 +1,9 @@
+import { useState } from 'react';
 import { FinancialProvider } from '@/contexts/FinancialContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { Header } from '@/components/layout/Header';
+import { UserManagement } from '@/components/auth/UserManagement';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Dashboard } from '@/components/financial/Dashboard';
 import { SalesForm } from '@/components/financial/SalesForm';
@@ -10,17 +15,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const FinancialApp = () => {
   useNotifications();
+  const [showUserManagement, setShowUserManagement] = useState(false);
+
+  if (showUserManagement) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header onShowUserManagement={() => setShowUserManagement(false)} />
+        <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+          <UserManagement />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold">Gestão Financeira - Restaurante</h1>
-          <p className="text-muted-foreground">
-            Sistema completo de controle financeiro com alocações automáticas
-          </p>
-        </header>
-
+    <div className="min-h-screen bg-background">
+      <Header onShowUserManagement={() => setShowUserManagement(true)} />
+      <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
         <Dashboard />
 
         <Tabs defaultValue="lancamentos" className="space-y-4">
@@ -57,9 +68,13 @@ const FinancialApp = () => {
 
 const Index = () => {
   return (
-    <FinancialProvider>
-      <FinancialApp />
-    </FinancialProvider>
+    <AuthProvider>
+      <ProtectedRoute>
+        <FinancialProvider>
+          <FinancialApp />
+        </FinancialProvider>
+      </ProtectedRoute>
+    </AuthProvider>
   );
 };
 
