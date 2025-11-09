@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { FinancialProvider } from '@/contexts/FinancialContext';
-import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Header } from '@/components/layout/Header';
 import { UserManagement } from '@/components/auth/UserManagement';
@@ -68,13 +67,11 @@ const FinancialApp = () => {
 
 const Index = () => {
   return (
-    <AuthProvider>
-      <ProtectedRoute>
-        <FinancialProvider>
-          <FinancialApp />
-        </FinancialProvider>
-      </ProtectedRoute>
-    </AuthProvider>
+    <ProtectedRoute>
+      <FinancialProvider>
+        <FinancialApp />
+      </FinancialProvider>
+    </ProtectedRoute>
   );
 };
 
