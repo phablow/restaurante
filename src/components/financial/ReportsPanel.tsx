@@ -45,14 +45,11 @@ export const ReportsPanel = () => {
   const totalDespesasMes = despesasMesAtual.reduce((sum, expense) => sum + expense.amount, 0);
 
   const getStatusBadge = (bill: typeof bills[0]) => {
-    if (bill.status === 'pago' || bill.status === 'recebido') {
+    if (bill.status === 'pago') {
       return <Badge variant="outline" className="bg-green-500/10 text-green-500">Pago</Badge>;
     }
 
-    const today = new Date();
-    const dueDate = new Date(bill.dueDate);
-
-    if (dueDate < today) {
+    if (bill.status === 'vencido') {
       return <Badge variant="destructive">Vencido</Badge>;
     }
 
@@ -232,14 +229,13 @@ export const ReportsPanel = () => {
                     <TableHead>Data</TableHead>
                     <TableHead>Método</TableHead>
                     <TableHead>Valor</TableHead>
-                    <TableHead>Taxa</TableHead>
-                    <TableHead>Líquido</TableHead>
+                    <TableHead>Descrição</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vendasMesAtual.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
                         Nenhuma venda registrada neste mês
                       </TableCell>
                     </TableRow>
@@ -251,10 +247,7 @@ export const ReportsPanel = () => {
                         </TableCell>
                         <TableCell className="capitalize">{sale.paymentMethod}</TableCell>
                         <TableCell>R$ {sale.amount.toFixed(2)}</TableCell>
-                        <TableCell>R$ {sale.tax.toFixed(2)}</TableCell>
-                        <TableCell className="font-semibold">
-                          R$ {sale.netAmount.toFixed(2)}
-                        </TableCell>
+                        <TableCell>{sale.description || '-'}</TableCell>
                       </TableRow>
                     ))
                   )}
