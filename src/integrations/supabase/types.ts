@@ -14,16 +14,391 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          id: Database["public"]["Enums"]["account_type"]
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id: Database["public"]["Enums"]["account_type"]
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: Database["public"]["Enums"]["account_type"]
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bills: {
+        Row: {
+          account: Database["public"]["Enums"]["account_type"] | null
+          amount: number
+          category: string | null
+          counterparty: string | null
+          created_at: string
+          created_by: string
+          description: string
+          due_date: string
+          id: string
+          paid_date: string | null
+          status: Database["public"]["Enums"]["bill_status"]
+          type: Database["public"]["Enums"]["bill_type"]
+          updated_at: string
+        }
+        Insert: {
+          account?: Database["public"]["Enums"]["account_type"] | null
+          amount: number
+          category?: string | null
+          counterparty?: string | null
+          created_at?: string
+          created_by: string
+          description: string
+          due_date: string
+          id?: string
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["bill_status"]
+          type: Database["public"]["Enums"]["bill_type"]
+          updated_at?: string
+        }
+        Update: {
+          account?: Database["public"]["Enums"]["account_type"] | null
+          amount?: number
+          category?: string | null
+          counterparty?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_date?: string
+          id?: string
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["bill_status"]
+          type?: Database["public"]["Enums"]["bill_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bills_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_liquidations: {
+        Row: {
+          card_brand: Database["public"]["Enums"]["card_brand"]
+          created_at: string
+          id: string
+          liquidated: boolean
+          liquidation_date: string
+          net_amount: number
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          sale_amount: number
+          sale_date: string
+          sale_id: string
+          tax_amount: number
+          tax_rate: number
+        }
+        Insert: {
+          card_brand: Database["public"]["Enums"]["card_brand"]
+          created_at?: string
+          id?: string
+          liquidated?: boolean
+          liquidation_date: string
+          net_amount: number
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          sale_amount: number
+          sale_date: string
+          sale_id: string
+          tax_amount: number
+          tax_rate: number
+        }
+        Update: {
+          card_brand?: Database["public"]["Enums"]["card_brand"]
+          created_at?: string
+          id?: string
+          liquidated?: boolean
+          liquidation_date?: string
+          net_amount?: number
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          sale_amount?: number
+          sale_date?: string
+          sale_id?: string
+          tax_amount?: number
+          tax_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_liquidations_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          account: Database["public"]["Enums"]["account_type"]
+          amount: number
+          category: string
+          created_at: string
+          created_by: string
+          date: string
+          description: string
+          id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        Insert: {
+          account: Database["public"]["Enums"]["account_type"]
+          amount: number
+          category: string
+          created_at?: string
+          created_by: string
+          date: string
+          description: string
+          id?: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        Update: {
+          account?: Database["public"]["Enums"]["account_type"]
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string
+          date?: string
+          description?: string
+          id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_transactions: {
+        Row: {
+          amount: number
+          category: Database["public"]["Enums"]["transaction_category"]
+          created_at: string
+          created_by: string
+          date: string
+          description: string
+          from_account: Database["public"]["Enums"]["account_type"]
+          id: string
+          reference: string | null
+          to_account: Database["public"]["Enums"]["account_type"]
+        }
+        Insert: {
+          amount: number
+          category: Database["public"]["Enums"]["transaction_category"]
+          created_at?: string
+          created_by: string
+          date: string
+          description: string
+          from_account: Database["public"]["Enums"]["account_type"]
+          id?: string
+          reference?: string | null
+          to_account: Database["public"]["Enums"]["account_type"]
+        }
+        Update: {
+          amount?: number
+          category?: Database["public"]["Enums"]["transaction_category"]
+          created_at?: string
+          created_by?: string
+          date?: string
+          description?: string
+          from_account?: Database["public"]["Enums"]["account_type"]
+          id?: string
+          reference?: string | null
+          to_account?: Database["public"]["Enums"]["account_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pendings: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          description: string
+          id: string
+          type: Database["public"]["Enums"]["pending_type"]
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          date: string
+          description: string
+          id?: string
+          type: Database["public"]["Enums"]["pending_type"]
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          type?: Database["public"]["Enums"]["pending_type"]
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sales: {
+        Row: {
+          amount: number
+          card_brand: Database["public"]["Enums"]["card_brand"] | null
+          created_at: string
+          created_by: string
+          date: string
+          description: string | null
+          id: string
+          liquidated: boolean | null
+          liquidation_date: string | null
+          net_amount: number | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        Insert: {
+          amount: number
+          card_brand?: Database["public"]["Enums"]["card_brand"] | null
+          created_at?: string
+          created_by: string
+          date: string
+          description?: string | null
+          id?: string
+          liquidated?: boolean | null
+          liquidation_date?: string | null
+          net_amount?: number | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        Update: {
+          amount?: number
+          card_brand?: Database["public"]["Enums"]["card_brand"] | null
+          created_at?: string
+          created_by?: string
+          date?: string
+          description?: string | null
+          id?: string
+          liquidated?: boolean | null
+          liquidation_date?: string | null
+          net_amount?: number | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      account_type:
+        | "caixa_dinheiro"
+        | "caixa_pix"
+        | "investimento"
+        | "quitacao_dividas"
+        | "reserva_folha"
+      app_role: "admin" | "user"
+      bill_status: "pendente" | "pago" | "vencido"
+      bill_type: "pagar" | "receber"
+      card_brand: "visa_master" | "elo_amex"
+      payment_method: "dinheiro" | "pix" | "credito" | "debito"
+      pending_type: "allocation_20" | "allocation_10" | "reserve_130"
+      transaction_category:
+        | "ALOCACAO_20"
+        | "ALOCACAO_10"
+        | "RESERVA_130"
+        | "LIQUIDACAO_CARTAO"
+        | "DESPESA"
+        | "VENDA"
+        | "AJUSTE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +525,29 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_type: [
+        "caixa_dinheiro",
+        "caixa_pix",
+        "investimento",
+        "quitacao_dividas",
+        "reserva_folha",
+      ],
+      app_role: ["admin", "user"],
+      bill_status: ["pendente", "pago", "vencido"],
+      bill_type: ["pagar", "receber"],
+      card_brand: ["visa_master", "elo_amex"],
+      payment_method: ["dinheiro", "pix", "credito", "debito"],
+      pending_type: ["allocation_20", "allocation_10", "reserve_130"],
+      transaction_category: [
+        "ALOCACAO_20",
+        "ALOCACAO_10",
+        "RESERVA_130",
+        "LIQUIDACAO_CARTAO",
+        "DESPESA",
+        "VENDA",
+        "AJUSTE",
+      ],
+    },
   },
 } as const
