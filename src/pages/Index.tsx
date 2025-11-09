@@ -10,6 +10,7 @@ import { ExpenseForm } from '@/components/financial/ExpenseForm';
 import { EndOfDayPanel } from '@/components/financial/EndOfDayPanel';
 import { BillsManager } from '@/components/financial/BillsManager';
 import { LiquidationsView } from '@/components/financial/LiquidationsView';
+import { ReportsPanel } from '@/components/financial/ReportsPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const FinancialApp = () => {
@@ -33,13 +34,18 @@ const FinancialApp = () => {
       <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
         <Dashboard />
 
-        <Tabs defaultValue="lancamentos" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="relatorios" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
             <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
             <TabsTrigger value="fechamento">Fechamento</TabsTrigger>
             <TabsTrigger value="contas">Contas</TabsTrigger>
             <TabsTrigger value="liquidacoes">Liquidações</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="relatorios">
+            <ReportsPanel />
+          </TabsContent>
 
           <TabsContent value="lancamentos" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
