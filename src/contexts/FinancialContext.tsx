@@ -13,6 +13,8 @@ import {
   ALLOCATION_PERCENTAGES,
   DAILY_RESERVE_AMOUNT,
 } from '@/types/financial';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
 
 interface FinancialContextType {
   accounts: Account[];
@@ -34,77 +36,165 @@ interface FinancialContextType {
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
-const INITIAL_ACCOUNTS: Account[] = [
-  { id: 'caixa_dinheiro', name: 'Caixa Dinheiro', balance: 0 },
-  { id: 'caixa_pix', name: 'Caixa PIX (InfinitePay)', balance: 0 },
-  { id: 'investimento', name: 'Investimento (20%)', balance: 0 },
-  { id: 'quitacao_dividas', name: 'Quitação de Dívidas (10%)', balance: 0 },
-  { id: 'reserva_folha', name: 'Reserva de Folha', balance: 0 },
-];
-
 export const FinancialProvider = ({ children }: { children: ReactNode }) => {
-  const [accounts, setAccounts] = useState<Account[]>(() => {
-    const stored = localStorage.getItem('accounts');
-    return stored ? JSON.parse(stored) : INITIAL_ACCOUNTS;
-  });
-  
-  const [sales, setSales] = useState<Sale[]>(() => {
-    const stored = localStorage.getItem('sales');
-    return stored ? JSON.parse(stored) : [];
-  });
-  
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const stored = localStorage.getItem('expenses');
-    return stored ? JSON.parse(stored) : [];
-  });
-  
-  const [transactions, setTransactions] = useState<InternalTransaction[]>(() => {
-    const stored = localStorage.getItem('transactions');
-    return stored ? JSON.parse(stored) : [];
-  });
-  
-  const [pendings, setPendings] = useState<Pending[]>(() => {
-    const stored = localStorage.getItem('pendings');
-    return stored ? JSON.parse(stored) : [];
-  });
-  
-  const [bills, setBills] = useState<Bill[]>(() => {
-    const stored = localStorage.getItem('bills');
-    return stored ? JSON.parse(stored) : [];
-  });
-  
-  const [cardLiquidations, setCardLiquidations] = useState<CardLiquidation[]>(() => {
-    const stored = localStorage.getItem('cardLiquidations');
-    return stored ? JSON.parse(stored) : [];
-  });
+  const { session } = useAuth();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [transactions, setTransactions] = useState<InternalTransaction[]>([]);
+  const [pendings, setPendings] = useState<Pending[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [cardLiquidations, setCardLiquidations] = useState<CardLiquidation[]>([]);
 
+  // Carregar dados do Supabase
   useEffect(() => {
-    localStorage.setItem('accounts', JSON.stringify(accounts));
-  }, [accounts]);
+    if (session) {
+      loadAccounts();
+      loadSales();
+      loadExpenses();
+      loadTransactions();
+      loadPendings();
+      loadBills();
+      loadCardLiquidations();
+    }
+  }, [session]);
 
-  useEffect(() => {
-    localStorage.setItem('sales', JSON.stringify(sales));
-  }, [sales]);
+  const loadAccounts = async () => {
+    const { data } = await supabase
+      .from('accounts')
+      .select('*')
+      .order('created_at');
+    
+    if (data) {
+      setAccounts(data.map(acc => ({
+        id: acc.id as AccountType,
+        name: acc.name,
+        balance: Number(acc.balance),
+      })));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-  }, [expenses]);
+  const loadSales = async () => {
+    const { data } = await supabase
+      .from('sales')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (data) {
+      setSales(data.map(s => ({
+        id: s.id,
+        date: s.date,
+        amount: Number(s.amount),
+        paymentMethod: s.payment_method as PaymentMethod,
+        cardBrand: s.card_brand as any,
+        description: s.description || '',
+        netAmount: s.net_amount ? Number(s.net_amount) : undefined,
+        liquidated: s.liquidated || false,
+        liquidationDate: s.liquidation_date || undefined,
+      })));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-  }, [transactions]);
+  const loadExpenses = async () => {
+    const { data } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (data) {
+      setExpenses(data.map(e => ({
+        id: e.id,
+        date: e.date,
+        amount: Number(e.amount),
+        paymentMethod: e.payment_method as PaymentMethod,
+        account: e.account as AccountType,
+        category: e.category,
+        description: e.description,
+      })));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('pendings', JSON.stringify(pendings));
-  }, [pendings]);
+  const loadTransactions = async () => {
+    const { data } = await supabase
+      .from('internal_transactions')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (data) {
+      setTransactions(data.map(t => ({
+        id: t.id,
+        date: t.date,
+        fromAccount: t.from_account as AccountType,
+        toAccount: t.to_account as AccountType,
+        amount: Number(t.amount),
+        category: t.category as any,
+        description: t.description,
+        reference: t.reference || undefined,
+      })));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('bills', JSON.stringify(bills));
-  }, [bills]);
+  const loadPendings = async () => {
+    const { data } = await supabase
+      .from('pendings')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (data) {
+      setPendings(data.map(p => ({
+        id: p.id,
+        type: p.type as any,
+        amount: Number(p.amount),
+        date: p.date,
+        description: p.description,
+      })));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('cardLiquidations', JSON.stringify(cardLiquidations));
-  }, [cardLiquidations]);
+  const loadBills = async () => {
+    const { data } = await supabase
+      .from('bills')
+      .select('*')
+      .order('due_date', { ascending: false });
+    
+    if (data) {
+      setBills(data.map(b => ({
+        id: b.id,
+        type: b.type as any,
+        description: b.description,
+        amount: Number(b.amount),
+        dueDate: b.due_date,
+        status: b.status as any,
+        counterparty: b.counterparty || undefined,
+        category: b.category || undefined,
+        account: b.account as AccountType || undefined,
+        paidDate: b.paid_date || undefined,
+      })));
+    }
+  };
+
+  const loadCardLiquidations = async () => {
+    const { data } = await supabase
+      .from('card_liquidations')
+      .select('*')
+      .order('liquidation_date', { ascending: false });
+    
+    if (data) {
+      setCardLiquidations(data.map(l => ({
+        id: l.id,
+        saleId: l.sale_id,
+        saleDate: l.sale_date,
+        saleAmount: Number(l.sale_amount),
+        cardBrand: l.card_brand as any,
+        paymentMethod: l.payment_method as 'credito' | 'debito',
+        taxRate: Number(l.tax_rate),
+        taxAmount: Number(l.tax_amount),
+        netAmount: Number(l.net_amount),
+        liquidationDate: l.liquidation_date,
+        liquidated: l.liquidated,
+      })));
+    }
+  };
 
   const updateAccountBalance = (accountId: AccountType, delta: number) => {
     setAccounts(prev =>

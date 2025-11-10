@@ -24,7 +24,7 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const success = login(email, password);
+    const success = await login(email, password);
     
     if (success) {
       navigate('/');

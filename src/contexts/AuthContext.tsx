@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthSession, UserRole } from '@/types/auth';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
   session: AuthSession | null;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAdmin: boolean;
   users: Omit<User, 'password'>[];
@@ -16,142 +17,245 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Usuário admin padrão
-const INITIAL_ADMIN: User = {
-  id: 'admin-001',
-  email: 'admin@admin.com',
-  password: 'admin123',
-  name: 'Administrador',
-  role: 'admin',
-  createdAt: new Date().toISOString(),
-  active: true,
-};
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [session, setSession] = useState<AuthSession | null>(() => {
-    const stored = localStorage.getItem('auth_session');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // Verificar se não expirou
-      if (new Date(parsed.expiresAt) > new Date()) {
-        return parsed;
-      }
-    }
-    return null;
-  });
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [users, setUsers] = useState<Omit<User, 'password'>[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [users, setUsers] = useState<User[]>(() => {
-    const stored = localStorage.getItem('users');
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    return [INITIAL_ADMIN];
-  });
-
+  // Verificar sessão e buscar usuário
   useEffect(() => {
-    if (session) {
-      localStorage.setItem('auth_session', JSON.stringify(session));
-    } else {
-      localStorage.removeItem('auth_session');
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        loadUserProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        loadUserProfile(session.user.id);
+      } else {
+        setSession(null);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Buscar perfil e roles do usuário
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (profile) {
+        const userRole = roles?.find(r => r.role === 'admin') ? 'admin' : 'user';
+        
+        const authSession: AuthSession = {
+          user: {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: userRole as UserRole,
+            createdAt: profile.created_at,
+            active: true,
+          },
+          token: userId,
+          expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+        };
+
+        setSession(authSession);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar perfil:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Buscar lista de usuários (apenas admin)
+  useEffect(() => {
+    if (session?.user.role === 'admin') {
+      loadUsers();
     }
   }, [session]);
 
-  useEffect(() => {
-    localStorage.setItem('users', JSON.stringify(users));
-  }, [users]);
+  const loadUsers = async () => {
+    try {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const login = (email: string, password: string): boolean => {
-    const user = users.find(u => u.email === email && u.password === password && u.active);
-    
-    if (!user) {
-      toast.error('Email ou senha incorretos');
-      return false;
+      if (profiles) {
+        const usersWithRoles = await Promise.all(
+          profiles.map(async (profile) => {
+            const { data: roles } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', profile.id);
+
+            const userRole = roles?.find(r => r.role === 'admin') ? 'admin' : 'user';
+
+            return {
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: userRole as UserRole,
+              createdAt: profile.created_at,
+              active: true,
+            };
+          })
+        );
+
+        setUsers(usersWithRoles);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
     }
-
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 8); // 8 horas de sessão
-
-    const newSession: AuthSession = {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        createdAt: user.createdAt,
-        active: user.active,
-      },
-      token: crypto.randomUUID(),
-      expiresAt: expiresAt.toISOString(),
-    };
-
-    setSession(newSession);
-    toast.success(`Bem-vindo(a), ${user.name}!`);
-    return true;
   };
 
-  const logout = () => {
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast.error('Email ou senha incorretos');
+        return false;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        toast.success(`Bem-vindo(a)!`);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Erro no login:', error);
+      toast.error('Erro ao fazer login');
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
     setSession(null);
     toast.info('Sessão encerrada');
   };
 
-  const addUser = (userData: Omit<User, 'id' | 'createdAt'>) => {
+  const addUser = async (userData: Omit<User, 'id' | 'createdAt'>) => {
     if (!session?.user || session.user.role !== 'admin') {
       toast.error('Apenas administradores podem adicionar usuários');
       return;
     }
 
-    const existingUser = users.find(u => u.email === userData.email);
-    if (existingUser) {
-      toast.error('Email já cadastrado');
-      return;
+    try {
+      // Criar usuário no Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password,
+        email_confirm: true,
+      });
+
+      if (authError || !authData.user) {
+        toast.error('Erro ao criar usuário');
+        return;
+      }
+
+      // Criar perfil
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email: userData.email,
+          name: userData.name,
+        });
+
+      if (profileError) {
+        toast.error('Erro ao criar perfil');
+        return;
+      }
+
+      // Criar role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: authData.user.id,
+          role: userData.role,
+        });
+
+      if (roleError) {
+        toast.error('Erro ao definir permissões');
+        return;
+      }
+
+      await loadUsers();
+      toast.success('Usuário criado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar usuário:', error);
+      toast.error('Erro ao criar usuário');
     }
-
-    const newUser: User = {
-      ...userData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-
-    setUsers(prev => [...prev, newUser]);
-    toast.success('Usuário criado com sucesso!');
   };
 
-  const updateUser = (id: string, updates: Partial<Omit<User, 'id' | 'password'>>) => {
+  const updateUser = async (id: string, updates: Partial<Omit<User, 'id' | 'password'>>) => {
     if (!session?.user || session.user.role !== 'admin') {
       toast.error('Apenas administradores podem editar usuários');
       return;
     }
 
-    setUsers(prev =>
-      prev.map(user => {
-        if (user.id === id) {
-          const updated = { ...user, ...updates };
-          
-          // Se estamos atualizando o próprio usuário logado, atualizar sessão
-          if (session.user.id === id) {
-            setSession({
-              ...session,
-              user: {
-                id: updated.id,
-                email: updated.email,
-                name: updated.name,
-                role: updated.role,
-                createdAt: updated.createdAt,
-                active: updated.active,
-              },
-            });
-          }
-          
-          return updated;
-        }
-        return user;
-      })
-    );
-    
-    toast.success('Usuário atualizado!');
+    try {
+      // Atualizar perfil
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: updates.name,
+          email: updates.email,
+        })
+        .eq('id', id);
+
+      if (profileError) {
+        toast.error('Erro ao atualizar perfil');
+        return;
+      }
+
+      // Atualizar role se necessário
+      if (updates.role) {
+        await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', id);
+
+        await supabase
+          .from('user_roles')
+          .insert({
+            user_id: id,
+            role: updates.role,
+          });
+      }
+
+      await loadUsers();
+      toast.success('Usuário atualizado!');
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      toast.error('Erro ao atualizar usuário');
+    }
   };
 
-  const deleteUser = (id: string) => {
+  const deleteUser = async (id: string) => {
     if (!session?.user || session.user.role !== 'admin') {
       toast.error('Apenas administradores podem deletar usuários');
       return;
@@ -162,24 +266,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    setUsers(prev => prev.filter(user => user.id !== id));
-    toast.success('Usuário deletado!');
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        toast.error('Erro ao deletar usuário');
+        return;
+      }
+
+      await loadUsers();
+      toast.success('Usuário deletado!');
+    } catch (error) {
+      console.error('Erro ao deletar usuário:', error);
+      toast.error('Erro ao deletar usuário');
+    }
   };
 
-  const changePassword = (userId: string, newPassword: string) => {
+  const changePassword = async (userId: string, newPassword: string) => {
     if (!session?.user || session.user.role !== 'admin') {
       toast.error('Apenas administradores podem alterar senhas');
       return;
     }
 
-    setUsers(prev =>
-      prev.map(user => (user.id === userId ? { ...user, password: newPassword } : user))
-    );
-    
-    toast.success('Senha alterada com sucesso!');
+    try {
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+
+      if (error) {
+        toast.error('Erro ao alterar senha');
+        return;
+      }
+
+      toast.success('Senha alterada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao alterar senha:', error);
+      toast.error('Erro ao alterar senha');
+    }
   };
 
-  const usersWithoutPassword = users.map(({ password, ...user }) => user);
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
 
   return (
     <AuthContext.Provider
@@ -188,7 +319,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         isAdmin: session?.user.role === 'admin',
-        users: usersWithoutPassword,
+        users,
         addUser,
         updateUser,
         deleteUser,
