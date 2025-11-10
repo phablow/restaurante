@@ -78,6 +78,12 @@ const Login = () => {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
+
+            <div className="text-center text-sm">
+              <a href="/primeiro-acesso" className="text-primary hover:underline">
+                Primeiro acesso? Criar conta admin
+              </a>
+            </div>
           </form>
         </CardContent>
       </Card>
