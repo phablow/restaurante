@@ -78,12 +78,6 @@ const Login = () => {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
-
-            <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-              <p className="font-semibold">Credenciais padrão:</p>
-              <p>Email: admin@admin.com</p>
-              <p>Senha: admin123</p>
-            </div>
           </form>
         </CardContent>
       </Card>

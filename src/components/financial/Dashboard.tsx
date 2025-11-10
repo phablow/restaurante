@@ -1,9 +1,11 @@
 import { useFinancial } from '@/contexts/FinancialContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, TrendingUp, AlertCircle, CreditCard } from 'lucide-react';
 
 export const Dashboard = () => {
   const { accounts, sales, expenses, bills, cardLiquidations } = useFinancial();
+  const { isAdmin } = useAuth();
 
   const today = new Date().toISOString().split('T')[0];
   
@@ -74,16 +76,23 @@ export const Dashboard = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {accounts.map(account => (
-          <Card key={account.id}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">R$ {account.balance.toFixed(2)}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {accounts.map(account => {
+          // Apenas admins podem ver investimentos (20%)
+          if (account.name.includes('20%') && !isAdmin) {
+            return null;
+          }
+          
+          return (
+            <Card key={account.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold">R$ {account.balance.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
