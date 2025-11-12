@@ -15,7 +15,7 @@ import {
 } from '@/types/financial';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
-import { extractDateOnly, addDaysToDateString, getTodayString } from '@/lib/dateUtils';
+import { extractDateOnly, addDaysToDateString, getTodayString, isWeekend, getNextBusinessDay, getNextBusinessDaySkipHolidays } from '@/lib/dateUtils';
 
 /**
  * IMPORTANTE: Todas as datas são armazenadas como strings no formato YYYY-MM-DD
@@ -63,6 +63,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
   const [pendings, setPendings] = useState<Pending[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [cardLiquidations, setCardLiquidations] = useState<CardLiquidation[]>([]);
+  const [feriados, setFeriados] = useState<string[]>([]); // Armazena datas de feriados como "YYYY-MM-DD"
 
   // Carregar dados do Supabase
   useEffect(() => {
@@ -74,6 +75,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
       loadPendings();
       loadBills();
       loadCardLiquidations();
+      loadFeriados();
     }
   }, [session]);
 
@@ -215,6 +217,78 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const loadFeriados = async () => {
+    try {
+      // Tentar carregar feriados do banco de dados
+      const { data, error } = await supabase
+        .from('feriados' as any) // Cast temporário até atualizar tipos
+        .select('data')
+        .order('data');
+      
+      if (!error && data) {
+        setFeriados(data.map((f: any) => extractDateOnly(f.data)));
+      } else {
+        // Se tabela não existe ainda, usar feriados padrão para 2025
+        setFeriados([
+          '2025-01-01', // Ano Novo
+          '2025-02-19', // Sexta-feira de Carnaval
+          '2025-02-20', // Sábado de Carnaval
+          '2025-02-21', // Domingo de Carnaval
+          '2025-02-22', // Segunda de Carnaval
+          '2025-02-24', // Segunda de Páscoa
+          '2025-04-21', // Tiradentes
+          '2025-05-01', // Dia do Trabalho
+          '2025-05-30', // Corpus Christi
+          '2025-09-07', // Independência do Brasil
+          '2025-10-12', // Nossa Senhora Aparecida
+          '2025-11-02', // Finados
+          '2025-11-20', // Consciência Negra
+          '2025-12-25', // Natal
+        ]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar feriados:', error);
+      // Usar feriados padrão em caso de erro
+      setFeriados([
+        '2025-01-01', '2025-02-19', '2025-02-20', '2025-02-21', '2025-02-22',
+        '2025-02-24', '2025-04-21', '2025-05-01', '2025-05-30', '2025-09-07',
+        '2025-10-12', '2025-11-02', '2025-11-20', '2025-12-25',
+      ]);
+    }
+  };
+
+  const isFeriado = async (dateString: string): Promise<boolean> => {
+    return feriados.includes(dateString);
+  };
+
+  const calculateLiquidationDate = async (saleDate: string): Promise<string> => {
+    // Começa com D+1
+    let liquidationDate = addDaysToDateString(saleDate, 1);
+    
+    // Pula fins de semana e feriados
+    let attempts = 0;
+    while (attempts < 30) {
+      // Verificar se é fim de semana
+      if (isWeekend(liquidationDate)) {
+        liquidationDate = addDaysToDateString(liquidationDate, 1);
+        attempts++;
+        continue;
+      }
+      
+      // Verificar se é feriado
+      if (feriados.includes(liquidationDate)) {
+        liquidationDate = addDaysToDateString(liquidationDate, 1);
+        attempts++;
+        continue;
+      }
+      
+      // Data válida encontrada
+      break;
+    }
+    
+    return liquidationDate;
+  };
+
   const updateAccountBalance = async (accountId: AccountType, delta: number) => {
     // Atualizar localmente primeiro
     const currentAccount = accounts.find(acc => acc.id === accountId);
@@ -310,14 +384,14 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
       } else if (sale.paymentMethod === 'pix') {
         await updateAccountBalance('caixa_pix', sale.amount);
       } else if (sale.paymentMethod === 'credito' || sale.paymentMethod === 'debito') {
-        // Para cartões, criar liquidação D+1
+        // Para cartões, criar liquidação D+1 (pulando fins de semana e feriados)
         if (sale.cardBrand) {
           const taxRate = CARD_TAX_RATES[sale.paymentMethod][sale.cardBrand];
           const taxAmount = sale.amount * taxRate;
           const netAmount = sale.amount - taxAmount;
           
-          // Adicionar 1 dia à data da venda para liquidação
-          const liquidationDate = addDaysToDateString(sale.date, 1);
+          // Calcular data de liquidação (próximo dia útil, pulando fins de semana e feriados)
+          const liquidationDate = await calculateLiquidationDate(sale.date);
           
           const newLiquidation: CardLiquidation = {
             id: crypto.randomUUID(),

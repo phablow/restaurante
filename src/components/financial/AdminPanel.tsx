@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { AccountType } from '@/types/financial';
-import { Trash2, Settings } from 'lucide-react';
+import { Trash2, Settings, Calendar } from 'lucide-react';
 
 export const AdminPanel = () => {
   const { isAdmin } = useAuth();
@@ -22,6 +23,10 @@ export const AdminPanel = () => {
   const [initialBalance, setInitialBalanceValue] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'sale' | 'expense' | 'bill'; id: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [feriados, setFeriados] = useState<Array<{ data: string; nome: string }>>([]);
+  const [novoFeriado, setNovoFeriado] = useState('');
+  const [novoFeriadoNome, setNovoFeriadoNome] = useState('');
+  const [feriadoToDelete, setFeriadoToDelete] = useState<string | null>(null);
 
   if (!isAdmin) {
     return (
@@ -35,6 +40,76 @@ export const AdminPanel = () => {
       </Card>
     );
   }
+
+  const loadFeriados = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('feriados' as any)
+        .select('data, nome')
+        .order('data');
+      
+      if (!error && data) {
+        setFeriados(data.map((f: any) => ({ data: f.data, nome: f.nome })));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar feriados:', error);
+    }
+  };
+
+  const handleAddFeriado = async () => {
+    if (!novoFeriado || !novoFeriadoNome) {
+      toast.error('Informe a data e nome do feriado');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('feriados' as any)
+        .insert({ data: novoFeriado, nome: novoFeriadoNome, tipo: 'customizado' });
+
+      if (error) {
+        if (error.message.includes('duplicate')) {
+          toast.error('Esse feriado já existe');
+        } else {
+          toast.error('Erro ao adicionar feriado');
+        }
+      } else {
+        toast.success('Feriado adicionado');
+        setNovoFeriado('');
+        setNovoFeriadoNome('');
+        await loadFeriados();
+      }
+    } catch (error) {
+      toast.error('Erro ao adicionar feriado');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteFeriado = async (data: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('feriados' as any)
+        .delete()
+        .eq('data', data);
+
+      if (error) {
+        toast.error('Erro ao deletar feriado');
+      } else {
+        toast.success('Feriado removido');
+        setFeriadoToDelete(null);
+        await loadFeriados();
+      }
+    } catch (error) {
+      toast.error('Erro ao deletar feriado');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSetInitialBalance = async () => {
     if (!initialBalance || parseFloat(initialBalance) < 0) {
@@ -147,6 +222,104 @@ export const AdminPanel = () => {
                 {isLoading ? 'Definindo...' : 'Definir Saldo'}
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gerenciar Feriados */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Gerenciar Feriados
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-2">
+            Feriados determinam quando as liquidações de cartão são processadas (D+1 pula fins de semana e feriados)
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Adicionar novo feriado */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="feriado-date">Data (YYYY-MM-DD)</Label>
+              <Input
+                id="feriado-date"
+                type="date"
+                value={novoFeriado}
+                onChange={(e) => setNovoFeriado(e.target.value)}
+                placeholder="2025-11-20"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="feriado-nome">Nome do Feriado</Label>
+              <Input
+                id="feriado-nome"
+                type="text"
+                value={novoFeriadoNome}
+                onChange={(e) => setNovoFeriadoNome(e.target.value)}
+                placeholder="Ex: Consciência Negra"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <Button 
+                onClick={handleAddFeriado}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? 'Adicionando...' : 'Adicionar Feriado'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Lista de feriados */}
+          <div className="mt-6">
+            <h3 className="font-semibold mb-2">Feriados Cadastrados</h3>
+            <div className="overflow-x-auto">
+              <Table className="text-sm">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead className="text-center">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {feriados.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground">
+                        Nenhum feriado cadastrado. Clique em "Carregar Feriados" para visualizar.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    feriados.map(feriado => (
+                      <TableRow key={feriado.data}>
+                        <TableCell>{feriado.data}</TableCell>
+                        <TableCell>{feriado.nome}</TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setFeriadoToDelete(feriado.data)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            <Button 
+              onClick={loadFeriados}
+              variant="outline"
+              className="mt-4 w-full"
+            >
+              Carregar Feriados
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -330,6 +503,32 @@ export const AdminPanel = () => {
               className="bg-destructive hover:bg-destructive/90"
             >
               Deletar
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de Confirmação de Exclusão de Feriado */}
+      <AlertDialog open={!!feriadoToDelete} onOpenChange={() => setFeriadoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Feriado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover este feriado? Futuras liquidações não mais o considerarão.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (feriadoToDelete) {
+                  handleDeleteFeriado(feriadoToDelete);
+                }
+              }}
+              disabled={isLoading}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Remover
             </AlertDialogAction>
           </div>
         </AlertDialogContent>

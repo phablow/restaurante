@@ -91,3 +91,68 @@ export const parseDateString = (dateStr: string): Date => {
   const [year, month, day] = datePart.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
+
+/**
+ * Verifica se uma data é fim de semana (sábado ou domingo)
+ * 
+ * @example
+ * isWeekend("2025-11-01") // true (sábado)
+ * isWeekend("2025-11-03") // false (segunda)
+ */
+export const isWeekend = (dateString: string): boolean => {
+  const date = parseDateString(dateString);
+  const dayOfWeek = date.getDay();
+  return dayOfWeek === 0 || dayOfWeek === 6; // 0 = domingo, 6 = sábado
+};
+
+/**
+ * Retorna o próximo dia útil após a data fornecida
+ * Pula fins de semana automaticamente
+ * Feriados devem ser checados separadamente com isFeriado()
+ * 
+ * @example
+ * getNextBusinessDay("2025-11-07") // "2025-11-08" (sexta para segunda)
+ */
+export const getNextBusinessDay = (dateString: string): string => {
+  let nextDay = addDaysToDateString(dateString, 1);
+  
+  // Pular fins de semana
+  while (isWeekend(nextDay)) {
+    nextDay = addDaysToDateString(nextDay, 1);
+  }
+  
+  return nextDay;
+};
+
+/**
+ * Retorna o próximo dia útil e não-feriado após a data fornecida
+ * Precisa de acesso ao banco de dados para verificar feriados
+ * Use isso para calcular datas de liquidação
+ * 
+ * NOTA: Essa função é genérica e precisa de um callback para verificar feriados
+ * Veja calculateLiquidationDate no FinancialContext para implementação real
+ * 
+ * @example
+ * getNextBusinessDaySkipHolidays("2025-11-07", async (date) => {
+ *   // verificar se é feriado no banco de dados
+ * }) // Retorna próximo dia útil que não é feriado
+ */
+export const getNextBusinessDaySkipHolidays = async (
+  dateString: string,
+  isFeriadoFn: (date: string) => Promise<boolean>
+): Promise<string> => {
+  let nextDay = getNextBusinessDay(dateString);
+  
+  // Verificar feriados (com limite de 30 dias para evitar loops infinitos)
+  let attempts = 0;
+  while (attempts < 30 && (await isFeriadoFn(nextDay))) {
+    nextDay = addDaysToDateString(nextDay, 1);
+    // Se caiu no fim de semana novamente, pular
+    while (isWeekend(nextDay)) {
+      nextDay = addDaysToDateString(nextDay, 1);
+    }
+    attempts++;
+  }
+  
+  return nextDay;
+};
