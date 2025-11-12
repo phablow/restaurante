@@ -80,6 +80,10 @@ interface FinancialContextType {
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   addBill: (bill: Omit<Bill, 'id'>) => Promise<void>;
   updateBill: (id: string, updates: Partial<Bill>) => Promise<void>;
+  deleteSale: (id: string) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  deleteBill: (id: string) => Promise<void>;
+  setInitialBalance: (accountId: AccountType, initialBalance: number) => Promise<void>;
   executeEndOfDay: (date: string) => Promise<void>;
   processLiquidations: (date: string) => Promise<void>;
   compensatePendings: () => void;
@@ -747,6 +751,78 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const deleteSale = async (id: string) => {
+    const sale = sales.find(s => s.id === id);
+    if (!sale) return;
+
+    // Reverter saldo
+    if (sale.paymentMethod === 'dinheiro') {
+      await updateAccountBalance('caixa_dinheiro', -sale.amount);
+    } else if (sale.paymentMethod === 'pix') {
+      await updateAccountBalance('caixa_pix', -sale.amount);
+    }
+
+    // Deletar do Supabase
+    await supabase.from('sales').delete().eq('id', id);
+
+    // Atualizar estado local
+    setSales(prev => prev.filter(s => s.id !== id));
+  };
+
+  const deleteExpense = async (id: string) => {
+    const expense = expenses.find(e => e.id === id);
+    if (!expense) return;
+
+    // Reverter saldo
+    await updateAccountBalance(expense.account, expense.amount);
+
+    // Deletar transação associada
+    await supabase
+      .from('internal_transactions')
+      .delete()
+      .eq('reference', id);
+
+    // Deletar do Supabase
+    await supabase.from('expenses').delete().eq('id', id);
+
+    // Atualizar estado local
+    setExpenses(prev => prev.filter(e => e.id !== id));
+    setTransactions(prev => prev.filter(t => t.reference !== id));
+  };
+
+  const deleteBill = async (id: string) => {
+    // Deletar do Supabase
+    await supabase.from('bills').delete().eq('id', id);
+
+    // Atualizar estado local
+    setBills(prev => prev.filter(b => b.id !== id));
+  };
+
+  const setInitialBalance = async (accountId: AccountType, initialBalance: number) => {
+    // Atualizar no Supabase
+    await supabase
+      .from('accounts')
+      .update({ balance: initialBalance })
+      .eq('id', accountId);
+
+    // Atualizar estado local
+    setAccounts(prev =>
+      prev.map(acc =>
+        acc.id === accountId ? { ...acc, balance: initialBalance } : acc
+      )
+    );
+
+    // Registrar como transação de ajuste
+    await addTransaction({
+      date: new Date().toISOString().split('T')[0],
+      fromAccount: accountId,
+      toAccount: accountId,
+      amount: initialBalance,
+      category: 'AJUSTE',
+      description: `Saldo inicial: R$ ${initialBalance.toFixed(2)}`,
+    });
+  };
+
   return (
     <FinancialContext.Provider
       value={{
@@ -761,6 +837,10 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
         addExpense,
         addBill,
         updateBill,
+        deleteSale,
+        deleteExpense,
+        deleteBill,
+        setInitialBalance,
         executeEndOfDay,
         processLiquidations,
         compensatePendings,

@@ -12,6 +12,7 @@ import { BillsManager } from '@/components/financial/BillsManager';
 import { LiquidationsView } from '@/components/financial/LiquidationsView';
 import { ReportsPanel } from '@/components/financial/ReportsPanel';
 import { StatementPanel } from '@/components/financial/StatementPanel';
+import { AdminPanel } from '@/components/financial/AdminPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const FinancialApp = () => {
@@ -36,13 +37,14 @@ const FinancialApp = () => {
         <Dashboard />
 
         <Tabs defaultValue="relatorios" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
             <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
             <TabsTrigger value="fechamento">Fechamento</TabsTrigger>
             <TabsTrigger value="contas">Contas</TabsTrigger>
             <TabsTrigger value="liquidacoes">Liquidações</TabsTrigger>
             <TabsTrigger value="extratos">Extratos</TabsTrigger>
+            <TabsTrigger value="admin">Admin</TabsTrigger>
           </TabsList>
 
           <TabsContent value="relatorios">
@@ -70,6 +72,10 @@ const FinancialApp = () => {
 
           <TabsContent value="extratos">
             <StatementPanel />
+          </TabsContent>
+
+          <TabsContent value="admin">
+            <AdminPanel />
           </TabsContent>
         </Tabs>
       </div>

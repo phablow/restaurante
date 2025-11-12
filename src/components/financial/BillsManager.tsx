@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { AccountType } from '@/types/financial';
+import { Plus } from 'lucide-react';
 
 // Função para converter data string para Date sem timezone
 const parseDateString = (dateStr: string): Date => {
@@ -20,6 +21,8 @@ const parseDateString = (dateStr: string): Date => {
 
 export const BillsManager = () => {
   const { bills, addBill, updateBill } = useFinancial();
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [type, setType] = useState<'pagar' | 'receber'>('pagar');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -30,6 +33,22 @@ export const BillsManager = () => {
   const [isPartial, setIsPartial] = useState(false);
   const [selectedBillForPayment, setSelectedBillForPayment] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
+
+  const resetAddForm = () => {
+    setType('pagar');
+    setAmount('');
+    setDescription('');
+    setDueDate('');
+    setJustAdded(false);
+  };
+
+  const resetPayForm = () => {
+    setPaidDate('');
+    setPaidAmount('');
+    setIsPartial(false);
+    setSelectedBillForPayment(null);
+  };
 
   const handleAddBill = async () => {
     if (!amount || !description || !dueDate) {
@@ -48,9 +67,16 @@ export const BillsManager = () => {
       });
 
       toast.success('Conta adicionada!');
-      setAmount('');
-      setDescription('');
-      setDueDate('');
+      setJustAdded(true);
+      resetAddForm();
+      
+      // Fechar dialog e reabrir após 500ms
+      setTimeout(() => {
+        setAddDialogOpen(false);
+        setTimeout(() => {
+          setJustAdded(false);
+        }, 300);
+      }, 500);
     } catch (error) {
       toast.error('Erro ao adicionar conta');
       console.error(error);
@@ -95,10 +121,8 @@ export const BillsManager = () => {
           : 'Conta paga/recebida completamente!'
       );
       
-      setPaidDate('');
-      setPaidAmount('');
-      setIsPartial(false);
-      setSelectedBillForPayment(null);
+      resetPayForm();
+      setPayDialogOpen(false);
     } catch (error) {
       toast.error('Erro ao registrar pagamento');
       console.error(error);
@@ -120,14 +144,96 @@ export const BillsManager = () => {
     return <Badge variant="secondary">Pendente</Badge>;
   };
 
+  if (justAdded) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Contas a Pagar/Receber</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-4 py-8">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">Conta adicionada com sucesso!</p>
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Conta
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Conta</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Tipo</Label>
+                    <Select value={type} onValueChange={(v) => setType(v as 'pagar' | 'receber')}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pagar">Conta a Pagar</SelectItem>
+                        <SelectItem value="receber">Conta a Receber</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Valor</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Descrição</Label>
+                    <Input
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Vencimento</Label>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                    />
+                  </div>
+
+                  <Button 
+                    onClick={handleAddBill} 
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Adicionando...' : 'Adicionar'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Contas a Pagar/Receber</span>
-          <Dialog>
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">Nova Conta</Button>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Conta
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -226,7 +332,7 @@ export const BillsManager = () => {
                   </TableCell>
                   <TableCell>
                     {bill.status === 'pendente' && (
-                      <Dialog>
+                      <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
                         <DialogTrigger asChild>
                           <Button 
                             size="sm" 

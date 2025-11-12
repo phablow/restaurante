@@ -57,8 +57,13 @@ export const StatementPanel = () => {
       }
     });
 
-    // Adicionar transações internas
+    // Adicionar transações internas (EXCETO DESPESA que já está em expenses)
     transactions.forEach(trans => {
+      // Pular se for transação de DESPESA (já está em expenses)
+      if (trans.category === 'DESPESA') {
+        return;
+      }
+
       if (trans.fromAccount === selectedAccount) {
         statement.push({
           date: trans.date,
