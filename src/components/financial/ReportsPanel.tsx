@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFinancial } from '@/contexts/FinancialContext';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FileText, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
@@ -16,8 +18,26 @@ const parseDateString = (dateStr: string): Date => {
   return new Date(year, month - 1, day);
 };
 
+// Gerar lista dos últimos 12 meses
+const getMonthOptions = () => {
+  const today = new Date();
+  const months = [];
+  
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const label = format(date, 'MMMM yyyy', { locale: ptBR });
+    months.push({ value, label });
+  }
+  
+  return months;
+};
+
 export const ReportsPanel = () => {
   const { bills, sales, expenses, getAccountBalance } = useFinancial();
+  const today = new Date();
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   // Contas a pagar (pendentes)
   const contasAPagar = bills.filter(
@@ -35,20 +55,19 @@ export const ReportsPanel = () => {
   // Total de contas a receber
   const totalAReceber = contasAReceber.reduce((sum, bill) => sum + bill.amount, 0);
 
-  // Resumo de vendas do mês atual
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  // Filtrar vendas pelo mês selecionado
+  const [year, month] = selectedMonth.split('-').map(Number);
   const vendasMesAtual = sales.filter((sale) => {
     const saleDate = parseDateString(sale.date);
-    return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+    return saleDate.getMonth() === month - 1 && saleDate.getFullYear() === year;
   });
 
   const totalVendasMes = vendasMesAtual.reduce((sum, sale) => sum + sale.amount, 0);
 
-  // Resumo de despesas do mês atual
+  // Filtrar despesas pelo mês selecionado
   const despesasMesAtual = expenses.filter((expense) => {
     const expenseDate = parseDateString(expense.date);
-    return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+    return expenseDate.getMonth() === month - 1 && expenseDate.getFullYear() === year;
   });
 
   const totalDespesasMes = despesasMesAtual.reduce((sum, expense) => sum + expense.amount, 0);
@@ -133,8 +152,8 @@ export const ReportsPanel = () => {
         <TabsList>
           <TabsTrigger value="pagar">Contas a Pagar</TabsTrigger>
           <TabsTrigger value="receber">Contas a Receber</TabsTrigger>
-          <TabsTrigger value="vendas">Vendas do Mês</TabsTrigger>
-          <TabsTrigger value="despesas">Despesas do Mês</TabsTrigger>
+          <TabsTrigger value="vendas">Vendas</TabsTrigger>
+          <TabsTrigger value="despesas">Despesas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pagar">
@@ -225,11 +244,25 @@ export const ReportsPanel = () => {
 
         <TabsContent value="vendas">
           <Card>
-            <CardHeader>
-              <CardTitle>Vendas do Mês</CardTitle>
-              <CardDescription>
-                Todas as vendas registradas no mês atual
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Vendas</CardTitle>
+                <CardDescription>
+                  Todas as vendas registradas no mês selecionado
+                </CardDescription>
+              </div>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getMonthOptions().map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardHeader>
             <CardContent>
               <Table>
@@ -269,9 +302,9 @@ export const ReportsPanel = () => {
         <TabsContent value="despesas">
           <Card>
             <CardHeader>
-              <CardTitle>Despesas do Mês</CardTitle>
+              <CardTitle>Despesas</CardTitle>
               <CardDescription>
-                Todas as despesas registradas no mês atual
+                Todas as despesas registradas no mês selecionado
               </CardDescription>
             </CardHeader>
             <CardContent>

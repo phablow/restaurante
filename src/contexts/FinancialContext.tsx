@@ -760,6 +760,15 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
       await updateAccountBalance('caixa_dinheiro', -sale.amount);
     } else if (sale.paymentMethod === 'pix') {
       await updateAccountBalance('caixa_pix', -sale.amount);
+    } else if (sale.paymentMethod === 'credito' || sale.paymentMethod === 'debito') {
+      // Se for cartão, reverter a liquidação também
+      const liquidation = cardLiquidations.find(l => l.saleId === id);
+      if (liquidation) {
+        // Deletar liquidação do Supabase
+        await supabase.from('card_liquidations').delete().eq('id', liquidation.id);
+        // Atualizar estado
+        setCardLiquidations(prev => prev.filter(l => l.id !== liquidation.id));
+      }
     }
 
     // Deletar do Supabase
