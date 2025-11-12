@@ -2,12 +2,13 @@ import { useFinancial } from '@/contexts/FinancialContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, TrendingUp, AlertCircle, CreditCard } from 'lucide-react';
+import { getTodayString } from '@/lib/dateUtils';
 
 export const Dashboard = () => {
   const { accounts, sales, expenses, bills, cardLiquidations } = useFinancial();
   const { isAdmin } = useAuth();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayString();
   
   const todaySales = sales
     .filter(s => s.date === today)

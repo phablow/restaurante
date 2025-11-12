@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from 'sonner';
 import { AccountType } from '@/types/financial';
 import { Plus } from 'lucide-react';
+import { getTodayString } from '@/lib/dateUtils';
 
 const EXPENSE_CATEGORIES = [
   'Aluguel',
@@ -57,7 +58,7 @@ export const ExpenseForm = () => {
     setIsLoading(true);
     try {
       const expense = {
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayString(),
         amount: parseFloat(amount),
         category,
         paymentMethod: account === 'caixa_dinheiro' ? 'dinheiro' as const : 'pix' as const,

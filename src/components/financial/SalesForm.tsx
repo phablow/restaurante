@@ -9,12 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { PaymentMethod, CardBrand } from '@/types/financial';
 import { Plus } from 'lucide-react';
+import { getTodayString } from '@/lib/dateUtils';
 
 export const SalesForm = () => {
   const { addSale } = useFinancial();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getTodayString());
   const [saleType, setSaleType] = useState('outros');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
   const [cardBrand, setCardBrand] = useState<CardBrand>('visa_master');
@@ -24,7 +25,7 @@ export const SalesForm = () => {
 
   const resetForm = () => {
     setAmount('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getTodayString());
     setSaleType('outros');
     setPaymentMethod('dinheiro');
     setCardBrand('visa_master');

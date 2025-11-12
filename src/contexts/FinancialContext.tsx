@@ -15,6 +15,7 @@ import {
 } from '@/types/financial';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
+import { extractDateOnly, addDaysToDateString, getTodayString } from '@/lib/dateUtils';
 
 /**
  * IMPORTANTE: Todas as datas são armazenadas como strings no formato YYYY-MM-DD
@@ -25,48 +26,9 @@ import { useAuth } from './AuthContext';
  * - Uma venda registrada em 12/11/2025 sempre será 12/11/2025
  * - Não há conversão automática baseada em timezone
  * - Funciona corretamente independente do horário de verão
+ * 
+ * As funções de utilidade para datas estão em @/lib/dateUtils.ts
  */
-
-// Função para extrair apenas a data (sem conversão de timezone)
-// Se receber "2025-11-03T02:00:00.000Z", retorna "2025-11-03"
-// Se receber "2025-11-03", retorna "2025-11-03"
-const extractDateOnly = (dateValue: any): string => {
-  if (!dateValue) return new Date().toISOString().split('T')[0];
-  
-  // Se for string, extrair apenas a parte da data
-  if (typeof dateValue === 'string') {
-    // Se tem T (timestamp completo), pegar antes do T
-    if (dateValue.includes('T')) {
-      return dateValue.split('T')[0];
-    }
-    // Se é apenas data, retornar como está
-    return dateValue;
-  }
-  
-  // Se for Date object
-  if (dateValue instanceof Date) {
-    // Usar a data local sem conversão de timezone
-    const year = dateValue.getFullYear();
-    const month = String(dateValue.getMonth() + 1).padStart(2, '0');
-    const day = String(dateValue.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-  
-  return new Date().toISOString().split('T')[0];
-};
-
-// Função auxiliar para adicionar dias a uma data sem problemas de timezone
-const addDaysToDateString = (dateString: string, days: number): string => {
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day); // month é 0-indexed
-  date.setDate(date.getDate() + days);
-  
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  
-  return `${y}-${m}-${d}`;
-};
 
 interface FinancialContextType {
   accounts: Account[];
@@ -720,7 +682,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
           updateAccountBalance('caixa_pix', -pending.amount);
           updateAccountBalance(toAccount, pending.amount);
           addTransaction({
-            date: new Date().toISOString().split('T')[0],
+            date: getTodayString(),
             fromAccount: 'caixa_pix',
             toAccount,
             amount: pending.amount,
@@ -737,7 +699,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
           updateAccountBalance('caixa_dinheiro', -pending.amount);
           updateAccountBalance('reserva_folha', pending.amount);
           addTransaction({
-            date: new Date().toISOString().split('T')[0],
+            date: getTodayString(),
             fromAccount: 'caixa_dinheiro',
             toAccount: 'reserva_folha',
             amount: pending.amount,
@@ -823,7 +785,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
 
     // Registrar como transação de ajuste
     await addTransaction({
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayString(),
       fromAccount: accountId,
       toAccount: accountId,
       amount: initialBalance,

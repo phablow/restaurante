@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
+import { getTodayString } from '@/lib/dateUtils';
 
 // Função auxiliar para subtrair dias de uma data sem problemas de timezone
 const subtractDaysFromDateString = (dateString: string, days: number): string => {
@@ -23,7 +24,7 @@ const subtractDaysFromDateString = (dateString: string, days: number): string =>
 export const EndOfDayPanel = () => {
   const { sales, bills, cardLiquidations, executeEndOfDay, processLiquidations } = useFinancial();
   const { isAdmin } = useAuth();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [isLoading, setIsLoading] = useState(false);
 
   // Calcular base do dia (vendas + contas a receber)
