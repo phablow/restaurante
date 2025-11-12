@@ -11,6 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from 'sonner';
 import { AccountType } from '@/types/financial';
 
+// Função para converter data string para Date sem timezone
+const parseDateString = (dateStr: string): Date => {
+  const datePart = dateStr.split('T')[0]; // Extrai "YYYY-MM-DD"
+  const [year, month, day] = datePart.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export const BillsManager = () => {
   const { bills, addBill, updateBill } = useFinancial();
   const [type, setType] = useState<'pagar' | 'receber'>('pagar');
@@ -18,40 +25,90 @@ export const BillsManager = () => {
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [payAccount, setPayAccount] = useState<AccountType>('caixa_pix');
+  const [paidDate, setPaidDate] = useState('');
+  const [paidAmount, setPaidAmount] = useState('');
+  const [isPartial, setIsPartial] = useState(false);
+  const [selectedBillForPayment, setSelectedBillForPayment] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddBill = () => {
+  const handleAddBill = async () => {
     if (!amount || !description || !dueDate) {
       toast.error('Preencha todos os campos');
       return;
     }
 
-    addBill({
-      type,
-      amount: parseFloat(amount),
-      description,
-      dueDate,
-      status: 'pendente',
-    });
+    setIsLoading(true);
+    try {
+      await addBill({
+        type,
+        amount: parseFloat(amount),
+        description,
+        dueDate,
+        status: 'pendente',
+      });
 
-    toast.success('Conta adicionada!');
-    setAmount('');
-    setDescription('');
-    setDueDate('');
+      toast.success('Conta adicionada!');
+      setAmount('');
+      setDescription('');
+      setDueDate('');
+    } catch (error) {
+      toast.error('Erro ao adicionar conta');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handlePayBill = (billId: string) => {
-    updateBill(billId, {
-      status: 'pago',
-      paidDate: new Date().toISOString().split('T')[0],
-      account: payAccount,
-    });
-    toast.success('Conta paga/recebida!');
+  const handlePayBill = async (billId: string, billAmount: number) => {
+    if (!paidDate) {
+      toast.error('Selecione a data do pagamento/recebimento');
+      return;
+    }
+
+    let amountToPay = billAmount;
+    if (isPartial) {
+      if (!paidAmount || parseFloat(paidAmount) <= 0) {
+        toast.error('Informe o valor pago');
+        return;
+      }
+      amountToPay = parseFloat(paidAmount);
+      if (amountToPay > billAmount) {
+        toast.error(`Valor pago não pode ser maior que R$ ${billAmount.toFixed(2)}`);
+        return;
+      }
+    }
+
+    const status = isPartial && amountToPay < billAmount ? 'pendente' : 'pago';
+    
+    try {
+      await updateBill(billId, {
+        status,
+        paidDate: paidDate,
+        account: payAccount,
+        amount: isPartial ? (billAmount - amountToPay) : billAmount,
+        paidAmount: amountToPay,
+      });
+
+      toast.success(
+        isPartial && status === 'pendente'
+          ? `Recebimento parcial de R$ ${amountToPay.toFixed(2)} registrado!`
+          : 'Conta paga/recebida completamente!'
+      );
+      
+      setPaidDate('');
+      setPaidAmount('');
+      setIsPartial(false);
+      setSelectedBillForPayment(null);
+    } catch (error) {
+      toast.error('Erro ao registrar pagamento');
+      console.error(error);
+    }
   };
 
   const getStatusBadge = (bill: typeof bills[0]) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const due = new Date(bill.dueDate);
+    const due = parseDateString(bill.dueDate);
     due.setHours(0, 0, 0, 0);
 
     if (bill.status === 'pago') {
@@ -117,8 +174,12 @@ export const BillsManager = () => {
                   />
                 </div>
 
-                <Button onClick={handleAddBill} className="w-full">
-                  Adicionar
+                <Button 
+                  onClick={handleAddBill} 
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Adicionando...' : 'Adicionar'}
                 </Button>
               </div>
             </DialogContent>
@@ -132,15 +193,17 @@ export const BillsManager = () => {
               <TableHead>Tipo</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead>Valor</TableHead>
+              <TableHead>Valor Pago</TableHead>
               <TableHead>Vencimento</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Data</TableHead>
               <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {bills.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Nenhuma conta cadastrada
                 </TableCell>
               </TableRow>
@@ -150,21 +213,88 @@ export const BillsManager = () => {
                   <TableCell className="capitalize">{bill.type}</TableCell>
                   <TableCell>{bill.description}</TableCell>
                   <TableCell>R$ {bill.amount.toFixed(2)}</TableCell>
+                  <TableCell>
+                    {bill.paidAmount ? `R$ ${bill.paidAmount.toFixed(2)}` : '-'}
+                  </TableCell>
                   <TableCell>{new Date(bill.dueDate).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>{getStatusBadge(bill)}</TableCell>
+                  <TableCell>
+                    {bill.paidDate 
+                      ? new Date(bill.paidDate).toLocaleDateString('pt-BR')
+                      : '-'
+                    }
+                  </TableCell>
                   <TableCell>
                     {bill.status === 'pendente' && (
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedBillForPayment(bill.id);
+                              setPaidAmount(bill.amount.toString());
+                              setIsPartial(false);
+                            }}
+                          >
                             {bill.type === 'pagar' ? 'Pagar' : 'Receber'}
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Confirmar Pagamento/Recebimento</DialogTitle>
+                            <DialogTitle>
+                              {bill.type === 'pagar' ? 'Pagar' : 'Receber'} - {bill.description}
+                            </DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4">
+                            <div className="p-3 bg-muted rounded-lg">
+                              <p className="text-sm text-muted-foreground">Valor Total</p>
+                              <p className="text-2xl font-bold">R$ {bill.amount.toFixed(2)}</p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Data do {bill.type === 'pagar' ? 'Pagamento' : 'Recebimento'}</Label>
+                              <Input
+                                type="date"
+                                value={paidDate}
+                                onChange={(e) => setPaidDate(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="partial"
+                                checked={isPartial}
+                                onChange={(e) => {
+                                  setIsPartial(e.target.checked);
+                                  if (!e.target.checked) {
+                                    setPaidAmount(bill.amount.toString());
+                                  }
+                                }}
+                                className="rounded border-gray-300"
+                              />
+                              <Label htmlFor="partial" className="cursor-pointer">
+                                Pagamento/Recebimento Parcial
+                              </Label>
+                            </div>
+
+                            {isPartial && (
+                              <div className="space-y-2">
+                                <Label htmlFor="paid-amount">
+                                  Valor a {bill.type === 'pagar' ? 'Pagar' : 'Receber'}
+                                </Label>
+                                <Input
+                                  id="paid-amount"
+                                  type="number"
+                                  step="0.01"
+                                  value={paidAmount}
+                                  onChange={(e) => setPaidAmount(e.target.value)}
+                                  max={bill.amount}
+                                />
+                              </div>
+                            )}
+                            
                             <div className="space-y-2">
                               <Label>Conta</Label>
                               <Select value={payAccount} onValueChange={(v) => setPayAccount(v as AccountType)}>
@@ -177,7 +307,11 @@ export const BillsManager = () => {
                                 </SelectContent>
                               </Select>
                             </div>
-                            <Button onClick={() => handlePayBill(bill.id)} className="w-full">
+
+                            <Button 
+                              onClick={() => handlePayBill(bill.id, bill.amount)} 
+                              className="w-full"
+                            >
                               Confirmar
                             </Button>
                           </div>

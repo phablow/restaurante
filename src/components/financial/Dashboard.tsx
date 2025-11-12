@@ -78,7 +78,12 @@ export const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {accounts.map(account => {
           // Apenas admins podem ver investimentos (20%)
-          if (account.name.includes('20%') && !isAdmin) {
+          if (account.id === 'investimento' && !isAdmin) {
+            return null;
+          }
+          
+          // Não mostrar Caixa PIX aqui (já está no card acima)
+          if (account.id === 'caixa_pix') {
             return null;
           }
           

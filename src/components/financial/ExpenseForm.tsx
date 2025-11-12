@@ -27,8 +27,9 @@ export const ExpenseForm = () => {
   const [category, setCategory] = useState('Outros');
   const [account, setAccount] = useState<AccountType>('caixa_dinheiro');
   const [description, setDescription] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!amount || parseFloat(amount) <= 0) {
@@ -41,20 +42,28 @@ export const ExpenseForm = () => {
       return;
     }
 
-    const expense = {
-      date: new Date().toISOString().split('T')[0],
-      amount: parseFloat(amount),
-      category,
-      paymentMethod: account === 'caixa_dinheiro' ? 'dinheiro' as const : 'pix' as const,
-      description,
-      account,
-    };
+    setIsLoading(true);
+    try {
+      const expense = {
+        date: new Date().toISOString().split('T')[0],
+        amount: parseFloat(amount),
+        category,
+        paymentMethod: account === 'caixa_dinheiro' ? 'dinheiro' as const : 'pix' as const,
+        description,
+        account,
+      };
 
-    addExpense(expense);
-    toast.success('Despesa registrada com sucesso!');
-    
-    setAmount('');
-    setDescription('');
+      await addExpense(expense);
+      toast.success('Despesa registrada com sucesso!');
+      
+      setAmount('');
+      setDescription('');
+    } catch (error) {
+      toast.error('Erro ao registrar despesa');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -113,8 +122,8 @@ export const ExpenseForm = () => {
             />
           </div>
 
-          <Button type="submit" className="w-full">
-            Registrar Despesa
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? 'Registrando...' : 'Registrar Despesa'}
           </Button>
         </form>
       </CardContent>

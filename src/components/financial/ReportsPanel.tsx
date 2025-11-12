@@ -3,9 +3,18 @@ import { useFinancial } from '@/contexts/FinancialContext';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FileText, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+
+// Função para converter data string sem timezone
+const parseDateString = (dateStr: string): Date => {
+  // Esperado: "YYYY-MM-DD" ou "YYYY-MM-DDTHH:MM:SS.sssZ"
+  const datePart = dateStr.split('T')[0]; // Extrai "YYYY-MM-DD"
+  const [year, month, day] = datePart.split('-').map(Number);
+  // Cria Date usando construtor que NÃO interpreta timezone
+  return new Date(year, month - 1, day);
+};
 
 export const ReportsPanel = () => {
   const { bills, sales, expenses, getAccountBalance } = useFinancial();
@@ -30,7 +39,7 @@ export const ReportsPanel = () => {
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const vendasMesAtual = sales.filter((sale) => {
-    const saleDate = new Date(sale.date);
+    const saleDate = parseDateString(sale.date);
     return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
   });
 
@@ -38,7 +47,7 @@ export const ReportsPanel = () => {
 
   // Resumo de despesas do mês atual
   const despesasMesAtual = expenses.filter((expense) => {
-    const expenseDate = new Date(expense.date);
+    const expenseDate = parseDateString(expense.date);
     return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
   });
 
@@ -158,7 +167,7 @@ export const ReportsPanel = () => {
                       <TableRow key={bill.id}>
                         <TableCell>{bill.description}</TableCell>
                         <TableCell>
-                          {format(new Date(bill.dueDate), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(parseDateString(bill.dueDate), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
                         <TableCell>R$ {bill.amount.toFixed(2)}</TableCell>
                         <TableCell>{getStatusBadge(bill)}</TableCell>
@@ -201,7 +210,7 @@ export const ReportsPanel = () => {
                       <TableRow key={bill.id}>
                         <TableCell>{bill.description}</TableCell>
                         <TableCell>
-                          {format(new Date(bill.dueDate), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(parseDateString(bill.dueDate), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
                         <TableCell>R$ {bill.amount.toFixed(2)}</TableCell>
                         <TableCell>{getStatusBadge(bill)}</TableCell>
@@ -243,7 +252,7 @@ export const ReportsPanel = () => {
                     vendasMesAtual.map((sale) => (
                       <TableRow key={sale.id}>
                         <TableCell>
-                          {format(new Date(sale.date), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(parseDateString(sale.date), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
                         <TableCell className="capitalize">{sale.paymentMethod}</TableCell>
                         <TableCell>R$ {sale.amount.toFixed(2)}</TableCell>
@@ -287,7 +296,7 @@ export const ReportsPanel = () => {
                     despesasMesAtual.map((expense) => (
                       <TableRow key={expense.id}>
                         <TableCell>
-                          {format(new Date(expense.date), "dd/MM/yyyy", { locale: ptBR })}
+                          {format(parseDateString(expense.date), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
                         <TableCell className="capitalize">{expense.category}</TableCell>
                         <TableCell>{expense.description}</TableCell>

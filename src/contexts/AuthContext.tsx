@@ -47,18 +47,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Buscar perfil e roles do usuário
   const loadUserProfile = async (userId: string) => {
     try {
-      const { data: profile } = await supabase
+      // Buscar usuário autenticado para pegar email
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      let { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+      // Se não encontrar perfil, criar automaticamente
+      if (profileError || !profile) {
+        if (authUser) {
+          const { data: newProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              email: authUser.email || '',
+              name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuário',
+            })
+            .select()
+            .single();
+
+          if (!insertError && newProfile) {
+            profile = newProfile;
+          }
+        }
+      }
 
       if (profile) {
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId);
+
         const userRole = roles?.find(r => r.role === 'admin') ? 'admin' : 'user';
         
         const authSession: AuthSession = {
@@ -75,6 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
 
         setSession(authSession);
+      } else {
+        console.error('Não foi possível carregar ou criar o perfil do usuário');
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
@@ -164,28 +188,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      // Criar usuário no Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      // Usar sign up em vez de admin API
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
-        email_confirm: true,
+        options: {
+          data: {
+            name: userData.name,
+          },
+        },
       });
 
       if (authError || !authData.user) {
-        toast.error('Erro ao criar usuário');
+        console.error('Erro ao criar usuário:', authError);
+        toast.error('Erro ao criar usuário: ' + (authError?.message || 'Desconhecido'));
         return;
       }
 
-      // Criar perfil
+      // Criar perfil (pode já estar criado pelo trigger)
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: authData.user.id,
           email: userData.email,
           name: userData.name,
         });
 
       if (profileError) {
+        console.error('Erro ao criar perfil:', profileError);
         toast.error('Erro ao criar perfil');
         return;
       }
@@ -199,12 +229,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
       if (roleError) {
+        console.error('Erro ao definir permissões:', roleError);
         toast.error('Erro ao definir permissões');
         return;
       }
 
       await loadUsers();
-      toast.success('Usuário criado com sucesso!');
+      toast.success('Usuário criado com sucesso! Verifique o email para confirmar.');
     } catch (error) {
       console.error('Erro ao criar usuário:', error);
       toast.error('Erro ao criar usuário');
@@ -292,16 +323,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const { error } = await supabase.auth.admin.updateUserById(userId, {
-        password: newPassword,
-      });
-
-      if (error) {
-        toast.error('Erro ao alterar senha');
-        return;
-      }
-
-      toast.success('Senha alterada com sucesso!');
+      // Como não temos acesso admin, vamos criar uma nota para o usuário resetar
+      toast.info('Recurso disponível apenas com acesso admin do Supabase');
+      toast.info('O usuário pode resetar sua senha no login');
     } catch (error) {
       console.error('Erro ao alterar senha:', error);
       toast.error('Erro ao alterar senha');

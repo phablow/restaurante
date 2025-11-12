@@ -13,6 +13,7 @@ export interface Sale {
   paymentMethod: PaymentMethod;
   cardBrand?: CardBrand;
   description?: string;
+  saleType?: string;
   liquidated?: boolean;
   liquidationDate?: string;
   netAmount?: number;
@@ -64,6 +65,7 @@ export interface Bill {
   counterparty?: string;
   paidDate?: string;
   account?: AccountType;
+  paidAmount?: number;
 }
 
 export interface CardLiquidation {
