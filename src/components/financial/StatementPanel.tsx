@@ -64,6 +64,19 @@ export const StatementPanel = () => {
         return;
       }
 
+      // Tratamento especial para AJUSTE (saldo inicial)
+      if (trans.category === 'AJUSTE' && trans.fromAccount === selectedAccount) {
+        statement.push({
+          date: trans.date,
+          type: trans.category,
+          description: `${trans.category}: ${trans.description}`,
+          amount: trans.amount,
+          operation: 'entrada',
+          id: `trans-ajuste-${trans.id}`,
+        });
+        return;
+      }
+
       if (trans.fromAccount === selectedAccount) {
         statement.push({
           date: trans.date,
@@ -126,6 +139,8 @@ export const StatementPanel = () => {
         return 'bg-green-100 text-green-800';
       case 'DESPESA':
         return 'bg-red-100 text-red-800';
+      case 'AJUSTE':
+        return 'bg-indigo-100 text-indigo-800';
       case 'ALOCACAO_20':
         return 'bg-blue-100 text-blue-800';
       case 'ALOCACAO_10':
