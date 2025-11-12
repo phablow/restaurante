@@ -216,11 +216,11 @@ export const BillsManager = () => {
                   <TableCell>
                     {bill.paidAmount ? `R$ ${bill.paidAmount.toFixed(2)}` : '-'}
                   </TableCell>
-                  <TableCell>{new Date(bill.dueDate).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>{parseDateString(bill.dueDate).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>{getStatusBadge(bill)}</TableCell>
                   <TableCell>
                     {bill.paidDate 
-                      ? new Date(bill.paidDate).toLocaleDateString('pt-BR')
+                      ? parseDateString(bill.paidDate).toLocaleDateString('pt-BR')
                       : '-'
                     }
                   </TableCell>

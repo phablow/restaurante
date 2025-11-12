@@ -2,6 +2,12 @@ import { useFinancial } from '@/contexts/FinancialContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+// Função para converter data string para Date sem timezone
+const parseDateString = (dateStr: string): Date => {
+  const datePart = dateStr.split('T')[0]; // Extrai "YYYY-MM-DD"
+  const [year, month, day] = datePart.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
 
 export const LiquidationsView = () => {
   const { cardLiquidations } = useFinancial();
@@ -38,7 +44,7 @@ export const LiquidationsView = () => {
             ) : (
               pendingLiquidations.map(liq => (
                 <TableRow key={liq.id}>
-                  <TableCell>{new Date(liq.saleDate).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{parseDateString(liq.saleDate).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell className="capitalize">{liq.paymentMethod}</TableCell>
                   <TableCell>
                     {liq.cardBrand === 'visa_master' ? 'Visa/Master' : 'Elo/Amex'}
@@ -47,7 +53,7 @@ export const LiquidationsView = () => {
                   <TableCell>{(liq.taxRate * 100).toFixed(2)}%</TableCell>
                   <TableCell>R$ {liq.taxAmount.toFixed(2)}</TableCell>
                   <TableCell className="font-semibold">R$ {liq.netAmount.toFixed(2)}</TableCell>
-                  <TableCell>{new Date(liq.liquidationDate).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{parseDateString(liq.liquidationDate).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>
                     {liq.liquidated ? (
                       <Badge variant="default">Liquidado</Badge>

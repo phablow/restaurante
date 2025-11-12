@@ -281,8 +281,8 @@ export const StatementPanel = () => {
             <strong>Total de Movimentações:</strong> {statement.length}
           </p>
           <p>
-            <strong>Período:</strong> {startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Sem filtro'} a{' '}
-            {endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Sem filtro'}
+              <strong>Período:</strong> {startDate ? parseDateString(startDate).toLocaleDateString('pt-BR') : 'Sem filtro'} a{' '}
+              {endDate ? parseDateString(endDate).toLocaleDateString('pt-BR') : 'Sem filtro'}
           </p>
         </div>
       </CardContent>
