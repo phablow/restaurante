@@ -547,6 +547,18 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
       } else {
         await updateAccountBalance(updates.account, amountToTransfer);
       }
+
+      // Registrar transação para contabilizar no extrato
+      // Usa ALOCACAO_20 como categoria genérica para pagamentos de contas
+      await addTransaction({
+        date: updates.paidDate || getTodayString(),
+        fromAccount: bill.type === 'pagar' ? updates.account : 'investimento',
+        toAccount: bill.type === 'pagar' ? 'investimento' : updates.account,
+        amount: amountToTransfer,
+        category: 'ALOCACAO_20',
+        description: `${bill.type === 'pagar' ? 'Pagamento' : 'Recebimento'} de Conta: ${bill.description}`,
+        reference: id,
+      });
     }
 
     await supabase
