@@ -215,12 +215,12 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
         type: b.type as any,
         description: b.description,
         amount: Number(b.amount),
-        dueDate: b.due_date,
+        dueDate: extractDateOnly(b.due_date),
         status: b.status as any,
         counterparty: b.counterparty || undefined,
         category: b.category || undefined,
         account: b.account as AccountType || undefined,
-        paidDate: b.paid_date || undefined,
+        paidDate: b.paid_date ? extractDateOnly(b.paid_date) : undefined,
         paidAmount: b.paid_amount ? Number(b.paid_amount) : undefined,
       })));
     }
@@ -269,6 +269,10 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTransaction = async (transaction: Omit<InternalTransaction, 'id'>) => {
+    if (!session?.user.id) {
+      throw new Error('Sessão não encontrada. Faça login novamente.');
+    }
+
     const newTransaction = { ...transaction, id: crypto.randomUUID() };
     
     // Atualizar estado local
@@ -286,7 +290,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
         category: newTransaction.category,
         description: newTransaction.description,
         reference: newTransaction.reference || null,
-        created_by: session?.user.id || '',
+        created_by: session.user.id,
       });
   };
 
@@ -313,6 +317,10 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addSale = async (sale: Omit<Sale, 'id'>) => {
+    if (!session?.user.id) {
+      throw new Error('Sessão não encontrada. Faça login novamente.');
+    }
+
     const newSale: Sale = { ...sale, id: crypto.randomUUID() };
     
     // Salvar no Supabase
@@ -325,7 +333,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
         payment_method: newSale.paymentMethod,
         card_brand: newSale.cardBrand || null,
         description: newSale.description || null,
-        created_by: session?.user.id || '',
+        created_by: session.user.id,
         sale_type: (newSale as any).saleType || 'outros',
       });
     
@@ -386,6 +394,10 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addExpense = async (expense: Omit<Expense, 'id'>) => {
+    if (!session?.user.id) {
+      throw new Error('Sessão não encontrada. Faça login novamente.');
+    }
+
     const newExpense = { ...expense, id: crypto.randomUUID() };
     
     // Salvar no Supabase
@@ -399,7 +411,7 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
         payment_method: newExpense.paymentMethod,
         description: newExpense.description,
         account: newExpense.account,
-        created_by: session?.user.id || '',
+        created_by: session.user.id,
       });
     
     if (!error) {
@@ -421,13 +433,14 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addBill = async (bill: Omit<Bill, 'id'>) => {
+    if (!session?.user.id) {
+      throw new Error('Sessão não encontrada. Faça login novamente.');
+    }
+
     const newBill = { ...bill, id: crypto.randomUUID() };
     
-    // Atualizar estado local
-    setBills(prev => [...prev, newBill]);
-    
-    // Persistir no Supabase
-    await supabase
+    // Persistir no Supabase PRIMEIRO
+    const { error } = await supabase
       .from('bills')
       .insert({
         id: newBill.id,
@@ -439,8 +452,15 @@ export const FinancialProvider = ({ children }: { children: ReactNode }) => {
         paid_date: newBill.paidDate || null,
         paid_amount: newBill.paidAmount || null,
         account: newBill.account || null,
-        created_by: session?.user.id || '',
+        created_by: session.user.id,
       });
+
+    // Só atualizar estado LOCAL se foi salvo com sucesso
+    if (!error) {
+      setBills(prev => [...prev, newBill]);
+    } else {
+      throw new Error(`Erro ao salvar conta: ${error.message}`);
+    }
   };
 
   const updateBill = async (id: string, updates: Partial<Bill>) => {

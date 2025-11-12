@@ -1,5 +1,15 @@
--- Adicionar coluna de valor pago nas contas
-ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(12, 2);
+-- Adicionar coluna paid_amount à tabela bills se não existir
+-- Esta coluna armazena o valor efetivamente pago/recebido em casos de pagamento parcial
 
--- Alterar comentário da tabela para documentar
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'bills' AND column_name = 'paid_amount'
+  ) THEN 
+    ALTER TABLE public.bills ADD COLUMN paid_amount numeric(12, 2);
+  END IF;
+END $$;
+
+-- Comentar a coluna para documentação
 COMMENT ON COLUMN public.bills.paid_amount IS 'Valor efetivamente pago/recebido (para pagamentos parciais)';
